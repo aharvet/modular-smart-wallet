@@ -16,3 +16,5 @@ set MAINNET_RPC_URL vars
 npx hardhat vars set MAINNET_RPC_URL url
 
 must use erc 7201 namespaced storage
+
+Use common + Imodule as base
