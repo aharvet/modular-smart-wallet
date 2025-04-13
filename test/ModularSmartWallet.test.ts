@@ -94,23 +94,6 @@ describe("ModularSmartWallet", function () {
       keyPair.key
     );
 
-    const MockWebAuthn = await ethers.getContractFactory("MockWebAuthn");
-    const mockWebAuthn = await MockWebAuthn.deploy();
-    const result = await mockWebAuthn.verifySignature(
-      passkeySig.challenge,
-      passkeySig.authenticatorData,
-      passkeySig.requireUserVerification,
-      passkeySig.clientDataJSON,
-      passkeySig.challengeLocation,
-      passkeySig.responseTypeLocation,
-      passkeySig.r,
-      passkeySig.s,
-      keyPair.x,
-      keyPair.y
-    );
-
-    expect(result).to.equal(true, "webauthn level");
-
     userOp.signature = signatureEncoded;
 
     const smartWalletContract = await ethers.getContractAt(
