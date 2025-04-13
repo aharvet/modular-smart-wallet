@@ -15,6 +15,6 @@ npx hardhat ignition deploy ./ignition/modules/Lock.ts
 set MAINNET_RPC_URL vars
 npx hardhat vars set MAINNET_RPC_URL url
 
-must use erc 7201 namespaced storage
+must use erc 7201 namespaced storage + erc 165
 
 Use common + Imodule as base

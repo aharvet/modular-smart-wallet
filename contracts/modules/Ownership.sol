@@ -7,20 +7,20 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Common} from "../Common.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ICommon} from "../interfaces/ICommon.sol";
+import {IOwnership} from "../interfaces/IOwnership.sol";
 
-contract Ownership is IModule, ERC165, Common {
+contract Ownership is IModule, ERC165, Common, IOwnership {
     bytes4[] private methods;
 
     constructor() {
-        methods = new bytes4[](1);
-        methods[0] = Ownership.transferOwnership.selector;
+        methods.push(Ownership.transferOwnership.selector);
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {
         return interfaceId == type(IModule).interfaceId || super.supportsInterface(interfaceId);
     }
 
-    function installModule() external view returns (bytes4[] memory) {
+    function installModule(bytes calldata) external view returns (bytes4[] memory) {
         return methods;
     }
 
@@ -29,6 +29,10 @@ contract Ownership is IModule, ERC165, Common {
     }
 
     function transferOwnership(ICommon.PublicKey memory newPublicKey) external onlyEntryPoint {
-        _getMainStorage().publicKey = newPublicKey;
+        MainStorage storage s = _getMainStorage();
+        PublicKey memory previousPublicKey = s.publicKey;
+        s.publicKey = newPublicKey;
+
+        emit OwnershipTransferred(previousPublicKey, newPublicKey);
     }
 }
