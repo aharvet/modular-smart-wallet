@@ -31,7 +31,7 @@ contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
         return _getMainStorage().installed[module];
     }
 
-    function addModule(address module) external onlyEntryPoint {
+    function addModule(address module, bytes calldata initData) external onlyEntryPoint {
         MainStorage storage s = _getMainStorage();
 
         require(!s.installed[module], ModuleAlreadyInstalled());
@@ -41,7 +41,7 @@ contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
 
         // Triggers state change and get selectors of module's methods
         (bool success, bytes memory data) =
-            module.delegatecall(abi.encodeWithSelector(IModule.installModule.selector, "0x"));
+            module.delegatecall(abi.encodeWithSelector(IModule.installModule.selector, initData));
         require(success, InstallFailed());
 
         // Add method's selectors to methods
@@ -105,7 +105,7 @@ contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
         require(nonce == getNonce(), InvalidNonce());
     }
 
-    function _delegate(address module) internal virtual {
+    function _delegate(address module) private {
         assembly {
             calldatacopy(0, 0, calldatasize())
             let result := delegatecall(gas(), module, 0, calldatasize(), 0, 0)

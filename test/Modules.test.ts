@@ -5,12 +5,19 @@ import { createPasskey, signUserOp } from "./utils/signing";
 import { createUserOp, getUserOpHash } from "./utils/userOp";
 import { entryPointAddress } from "./utils/constants";
 import { Signer } from "ethers";
-import { ModularSmartWallet, IEntryPoint } from "../typechain-types";
+import {
+  ModularSmartWallet,
+  IEntryPoint,
+  MockModule,
+  InvalidModule,
+  NoERC165Module,
+} from "../typechain-types";
 
 describe("Modules", function () {
   let smartWallet: ModularSmartWallet;
-  let mockModule: any;
-  let invalidModule: any;
+  let mockModule: MockModule;
+  let noErc165Module: NoERC165Module;
+  let invalidModule: InvalidModule;
   let account1: Signer;
   let entryPoint: IEntryPoint;
   let keyPair: {
@@ -33,6 +40,7 @@ describe("Modules", function () {
     );
     const MockModule = await ethers.getContractFactory("MockModule");
     const InvalidModule = await ethers.getContractFactory("InvalidModule");
+    const NoErc165Module = await ethers.getContractFactory("NoERC165Module");
 
     smartWallet = await ModularSmartWallet.deploy(entryPointAddress, {
       x: keyPair.x,
@@ -40,6 +48,8 @@ describe("Modules", function () {
     });
     mockModule = await MockModule.deploy();
     invalidModule = await InvalidModule.deploy();
+    noErc165Module = await NoErc165Module.deploy();
+
     await setBalance(await smartWallet.getAddress(), ethers.parseEther("100"));
   });
 
@@ -48,6 +58,7 @@ describe("Modules", function () {
       it("should install module", async function () {
         const callData = smartWallet.interface.encodeFunctionData("addModule", [
           await mockModule.getAddress(),
+          "0x",
         ]);
 
         const userOp = await createUserOp(smartWallet, callData);
@@ -68,6 +79,7 @@ describe("Modules", function () {
       it("should emit ModuleInstalled event", async function () {
         const callData = smartWallet.interface.encodeFunctionData("addModule", [
           await mockModule.getAddress(),
+          "0x",
         ]);
 
         const userOp = await createUserOp(smartWallet, callData);
@@ -85,6 +97,7 @@ describe("Modules", function () {
       it("should not add a module twice", async function () {
         const callData = smartWallet.interface.encodeFunctionData("addModule", [
           await mockModule.getAddress(),
+          "0x",
         ]);
 
         const userOp1 = await createUserOp(smartWallet, callData);
@@ -126,9 +139,10 @@ describe("Modules", function () {
         expect(errorEvents?.length).to.be.greaterThan(0);
       });
 
-      it("should not add module without ERC165 support", async function () {
+      it("should revert if no ERC165 support", async function () {
         const callData = smartWallet.interface.encodeFunctionData("addModule", [
-          await invalidModule.getAddress(),
+          await noErc165Module.getAddress(),
+          "0x",
         ]);
 
         const userOp = await createUserOp(smartWallet, callData);
@@ -145,12 +159,40 @@ describe("Modules", function () {
         expect(await smartWallet.isInstalled(await invalidModule.getAddress()))
           .to.be.false;
       });
+
+      it("should revert if no IModule support", async function () {
+        const callData = smartWallet.interface.encodeFunctionData("addModule", [
+          await invalidModule.getAddress(),
+          "0x",
+        ]);
+
+        const userOp = await createUserOp(smartWallet, callData);
+        const userOpHash = await getUserOpHash(entryPoint, userOp);
+        const { signatureEncoded } = await signUserOp(userOpHash, keyPair.key);
+        userOp.signature = signatureEncoded;
+
+        const tx = await entryPoint.handleOps(
+          [userOp],
+          await account1.getAddress()
+        );
+        await tx.wait();
+
+        expect(await smartWallet.isInstalled(await invalidModule.getAddress()))
+          .to.be.false;
+      });
+
+      it("should revert if not from entry point", async function () {
+        await expect(
+          smartWallet.addModule(mockModule.target, "0x")
+        ).to.be.revertedWithCustomError(smartWallet, "OnlyEntryPoint");
+      });
     });
 
     describe("Removing a module", function () {
       beforeEach(async function () {
         const callData = smartWallet.interface.encodeFunctionData("addModule", [
           await mockModule.getAddress(),
+          "0x",
         ]);
 
         const userOp = await createUserOp(smartWallet, callData);
@@ -254,6 +296,12 @@ describe("Modules", function () {
 
         expect(errorEvents?.length).to.be.greaterThan(0);
       });
+
+      it("should revert if not from entry point", async function () {
+        await expect(
+          smartWallet.removeModule(mockModule.target)
+        ).to.be.revertedWithCustomError(smartWallet, "OnlyEntryPoint");
+      });
     });
   });
 
@@ -261,6 +309,7 @@ describe("Modules", function () {
     beforeEach(async function () {
       const callData = smartWallet.interface.encodeFunctionData("addModule", [
         await mockModule.getAddress(),
+        "0x",
       ]);
 
       const userOp = await createUserOp(smartWallet, callData);
