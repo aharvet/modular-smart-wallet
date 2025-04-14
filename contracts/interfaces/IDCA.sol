@@ -15,6 +15,11 @@ interface IDCA {
 
     event BuyTriggered(uint256 currentPeriod);
 
+    error InvalidRouter();
+    error InvalidToken();
+    error InvalidDayFrequency();
+    error InvalidAmountIn();
+    error InvalidTimeframe();
     error BuyNotAllowed();
 
     function triggerBuy() external;

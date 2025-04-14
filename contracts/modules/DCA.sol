@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.29;
 
+import {IDCA} from "../interfaces/IDCA.sol";
 import {IModule} from "../interfaces/IModule.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {Common} from "../Common.sol";
-import {IUniswapV2Router01} from "../third-party/interfaces/IUniswapV2Router01.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IDCA} from "../interfaces/IDCA.sol";
+import {IUniswapV2Router01} from "../third-party/interfaces/IUniswapV2Router01.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract DCA is IDCA, IModule, Common, ERC165 {
+contract DCA is IDCA, IModule, ERC165 {
+    using SafeERC20 for IERC20;
+
     bytes32 internal constant DCA_STORAGE_LOCATION =
         bytes32(uint256(keccak256("modular-smart-wallet.dca")) - 1) & ~bytes32(uint256(0xff));
 
@@ -29,6 +31,14 @@ contract DCA is IDCA, IModule, Common, ERC165 {
             uint256 end
         ) = abi.decode(initData, (address, address, address, uint256, uint256, uint256, uint256));
 
+        require(router != address(0), InvalidRouter());
+        require(tokenIn != address(0) && tokenOut != address(0) && tokenIn != tokenOut, InvalidToken());
+        require(dayFrequency > 0, InvalidDayFrequency());
+        require(amountIn > 0, InvalidAmountIn());
+        require(start >= block.timestamp && end > start, InvalidTimeframe());
+
+        IERC20(tokenIn).forceApprove(router, type(uint256).max);
+
         s.router = router;
         s.path = new address[](2);
         s.path[0] = tokenIn;
@@ -38,15 +48,13 @@ contract DCA is IDCA, IModule, Common, ERC165 {
         s.start = start;
         s.end = end;
 
-        IERC20(tokenIn).approve(router, type(uint256).max);
-
         return _getMethods();
     }
 
     function uninstallModule() external returns (bytes4[] memory) {
         DCAStorage storage s = _getDCAStorage();
 
-        IERC20(s.path[0]).approve(s.router, 0);
+        IERC20(s.path[0]).forceApprove(s.router, 0);
 
         s.router = address(0);
         s.path = new address[](0);
@@ -81,8 +89,9 @@ contract DCA is IDCA, IModule, Common, ERC165 {
         // Update the last period executed
         s.lastPeriodExecuted = currentPeriod;
 
+        // Allows for a 1% slippage
         IUniswapV2Router01(s.router).swapExactTokensForTokens(
-            s.amountIn, s.amountIn * 92 / 100, s.path, address(this), block.timestamp
+            s.amountIn, s.amountIn * 99 / 100, s.path, address(this), block.timestamp
         );
 
         emit BuyTriggered(currentPeriod);

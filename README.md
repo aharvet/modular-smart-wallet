@@ -17,7 +17,7 @@ npx hardhat vars set MAINNET_RPC_URL url
 
 must use erc 7201 namespaced storage + erc 165
 
-Use common + Imodule as base
+Use common (pour onlyentrypoint et main storage) + Imodule as base
 
 Relayer options: Gelato, Chainlink Automation
 

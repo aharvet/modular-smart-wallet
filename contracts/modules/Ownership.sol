@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.29;
 
+import {IOwnership} from "../interfaces/IOwnership.sol";
 import {IModule} from "../interfaces/IModule.sol";
-import {IModularSmartWallet} from "../interfaces/IModularSmartWallet.sol";
+import {ICommon} from "../interfaces/ICommon.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Common} from "../Common.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {ICommon} from "../interfaces/ICommon.sol";
-import {IOwnership} from "../interfaces/IOwnership.sol";
 
 contract Ownership is IOwnership, IModule, ERC165, Common {
     function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {

@@ -12,7 +12,7 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 200,
       },
-      viaIR: true,
+      viaIR: false,
     },
   },
   networks: {
@@ -22,6 +22,9 @@ const config: HardhatUserConfig = {
         blockNumber: 22259580,
       },
     },
+  },
+  gasReporter: {
+    enabled: true,
   },
 };
 

@@ -21,8 +21,8 @@ interface IModularSmartWallet {
     error ModuleAlreadyInstalled();
     error ModuleNotInstalled();
     error SelectorCollision(bytes4 selector);
-    error InstallFailed();
-    error UninstallFailed();
+    error InstallFailed(bytes errorData);
+    error UninstallFailed(bytes errorData);
 
     function isInstalled(address module) external view returns (bool);
     function addModule(address module, bytes calldata initData) external;

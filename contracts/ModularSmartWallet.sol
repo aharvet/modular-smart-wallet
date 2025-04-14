@@ -2,15 +2,15 @@
 pragma solidity 0.8.29;
 
 import {IModularSmartWallet} from "./interfaces/IModularSmartWallet.sol";
-import {IModule} from "./interfaces/IModule.sol";
 import {ICommon} from "./interfaces/ICommon.sol";
+import {IModule} from "./interfaces/IModule.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
-import {BaseAccount} from "@account-abstraction/contracts/core/BaseAccount.sol";
-import {SIG_VALIDATION_FAILED, SIG_VALIDATION_SUCCESS} from "@account-abstraction/contracts/core/Helpers.sol";
-import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
-import {WebAuthn} from "./third-party/WebAuthn.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Common} from "./Common.sol";
+import {BaseAccount} from "@account-abstraction/contracts/core/BaseAccount.sol";
+import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
+import {SIG_VALIDATION_FAILED, SIG_VALIDATION_SUCCESS} from "@account-abstraction/contracts/core/Helpers.sol";
+import {WebAuthn} from "./third-party/WebAuthn.sol";
 
 contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
     constructor(address entryPoint_, PublicKey memory publicKey_) {
@@ -42,7 +42,7 @@ contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
         // Triggers state change and get selectors of module's methods
         (bool success, bytes memory data) =
             module.delegatecall(abi.encodeWithSelector(IModule.installModule.selector, initData));
-        require(success, InstallFailed());
+        require(success, InstallFailed(data));
 
         // Add method's selectors to methods
         bytes4[] memory selectors = abi.decode(data, (bytes4[]));
@@ -65,7 +65,7 @@ contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
         // Triggers state cleanup and get selectors of module's methods
         (bool success, bytes memory data) =
             module.delegatecall(abi.encodeWithSelector(IModule.uninstallModule.selector));
-        require(success, UninstallFailed());
+        require(success, UninstallFailed(data));
 
         // Remove method's selectors from methods
         bytes4[] memory selectors = abi.decode(data, (bytes4[]));
