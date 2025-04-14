@@ -9,15 +9,9 @@ import {IUniswapV2Router01} from "../third-party/interfaces/IUniswapV2Router01.s
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDCA} from "../interfaces/IDCA.sol";
 
-contract DCA is IModule, ERC165, Common, IDCA {
+contract DCA is IDCA, IModule, Common, ERC165 {
     bytes32 internal constant DCA_STORAGE_LOCATION =
         bytes32(uint256(keccak256("modular-smart-wallet.dca")) - 1) & ~bytes32(uint256(0xff));
-
-    bytes4[] private methods;
-
-    constructor() {
-        methods.push(DCA.triggerBuy.selector);
-    }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {
         return interfaceId == type(IModule).interfaceId || super.supportsInterface(interfaceId);
@@ -46,7 +40,7 @@ contract DCA is IModule, ERC165, Common, IDCA {
 
         IERC20(tokenIn).approve(router, type(uint256).max);
 
-        return methods;
+        return _getMethods();
     }
 
     function uninstallModule() external returns (bytes4[] memory) {
@@ -62,7 +56,11 @@ contract DCA is IModule, ERC165, Common, IDCA {
         s.end = 0;
         s.lastPeriodExecuted = 0;
 
-        return methods;
+        return _getMethods();
+    }
+
+    function getSettings() external pure returns (DCAStorage memory) {
+        return _getDCAStorage();
     }
 
     /// @dev Meant to be called by a relayer but can be called by anyone because the
@@ -88,6 +86,14 @@ contract DCA is IModule, ERC165, Common, IDCA {
         );
 
         emit BuyTriggered(currentPeriod);
+    }
+
+    function _getMethods() private pure returns (bytes4[] memory) {
+        bytes4[] memory methods = new bytes4[](2);
+        methods[0] = DCA.getSettings.selector;
+        methods[1] = DCA.triggerBuy.selector;
+
+        return methods;
     }
 
     function _getDCAStorage() private pure returns (DCAStorage storage s) {

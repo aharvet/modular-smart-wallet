@@ -11,7 +11,6 @@ import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/Pac
 import {WebAuthn} from "./third-party/WebAuthn.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Common} from "./Common.sol";
-import "hardhat/console.sol";
 
 contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
     constructor(address entryPoint_, PublicKey memory publicKey_) {
@@ -28,16 +27,21 @@ contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
         return _getMainStorage().publicKey;
     }
 
+    function isInstalled(address module) public view returns (bool) {
+        return _getMainStorage().installed[module];
+    }
+
     function addModule(address module) external onlyEntryPoint {
         MainStorage storage s = _getMainStorage();
 
-        require(s.installed[module], ModuleAlreadyInstalled());
+        require(!s.installed[module], ModuleAlreadyInstalled());
 
         // Check module implements IModule interface using ERC-165
         require(IERC165(module).supportsInterface(type(IModule).interfaceId), InvalidModule());
 
         // Triggers state change and get selectors of module's methods
-        (bool success, bytes memory data) = module.delegatecall(abi.encodeWithSelector(IModule.installModule.selector));
+        (bool success, bytes memory data) =
+            module.delegatecall(abi.encodeWithSelector(IModule.installModule.selector, "0x"));
         require(success, InstallFailed());
 
         // Add method's selectors to methods
@@ -58,7 +62,7 @@ contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
 
         require(s.installed[module], ModuleNotInstalled());
 
-        // Triggers state change and get selectors of module's methods
+        // Triggers state cleanup and get selectors of module's methods
         (bool success, bytes memory data) =
             module.delegatecall(abi.encodeWithSelector(IModule.uninstallModule.selector));
         require(success, UninstallFailed());
@@ -71,7 +75,7 @@ contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
 
         s.installed[module] = false;
 
-        emit ModuleRemoved(module);
+        emit ModuleUninstalled(module);
     }
 
     function _validateSignature(
@@ -114,6 +118,8 @@ contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
 
     fallback() external payable {
         address module = _getMainStorage().methods[msg.sig];
+        // Revert if no method found
+        // Doesn't return error to emulate normal behavior
         require(module != address(0));
         _delegate(module);
     }

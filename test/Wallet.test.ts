@@ -127,6 +127,21 @@ describe("Wallet", function () {
     expect(usdcAllowance).to.equal(allowance);
   });
 
+  // test that the wallet can receive ETH
+  it("should receive ETH", async function () {
+    const value = ethers.parseEther("1");
+    const initialBalance = await ethers.provider.getBalance(smartWallet.target);
+
+    const tx = await account1.sendTransaction({
+      to: smartWallet.target,
+      value,
+    });
+    await tx.wait();
+
+    const finalBalance = await ethers.provider.getBalance(smartWallet.target);
+    expect(finalBalance - initialBalance).to.equal(value);
+  });
+
   it("should revert if invalid nonce", async function () {
     const transferAmount = ethers.parseEther("1.0");
     const callData = smartWallet.interface.encodeFunctionData("execute", [
