@@ -186,6 +186,59 @@ describe("Modules", function () {
           smartWallet.addModule(mockModule.target, "0x")
         ).to.be.revertedWithCustomError(smartWallet, "OnlyEntryPoint");
       });
+
+      it("should revert if a selector is already registered", async function () {
+        const MockModule = await ethers.getContractFactory("MockModule");
+        const mockModule2 = await MockModule.deploy();
+
+        // install the first mock module
+        const callData = smartWallet.interface.encodeFunctionData("addModule", [
+          await mockModule.getAddress(),
+          "0x",
+        ]);
+
+        const userOp = await createUserOp(smartWallet, callData);
+        const userOpHash = await getUserOpHash(entryPoint, userOp);
+        const { signatureEncoded } = await signUserOp(userOpHash, keyPair.key);
+        userOp.signature = signatureEncoded;
+
+        let tx = await entryPoint.handleOps(
+          [userOp],
+          await account1.getAddress()
+        );
+        await tx.wait();
+
+        // install the second mock module with the same selectors
+        const callData2 = smartWallet.interface.encodeFunctionData(
+          "addModule",
+          [await mockModule2.getAddress(), "0x"]
+        );
+
+        const userOp2 = await createUserOp(smartWallet, callData2);
+        const userOpHash2 = await getUserOpHash(entryPoint, userOp2);
+        const { signatureEncoded: signatureEncoded2 } = await signUserOp(
+          userOpHash2,
+          keyPair.key
+        );
+        userOp2.signature = signatureEncoded2;
+
+        // Execute the transaction and check for error events
+        tx = await entryPoint.handleOps([userOp2], await account1.getAddress());
+        const receipt = await tx.wait();
+
+        const errorEvents = receipt?.logs
+          .filter((log) => {
+            try {
+              const parsedLog = entryPoint.interface.parseLog(log);
+              return parsedLog?.name === "UserOperationRevertReason";
+            } catch (e) {
+              return false;
+            }
+          })
+          .map((log) => entryPoint.interface.parseLog(log));
+
+        expect(errorEvents?.length).to.be.greaterThan(0);
+      });
     });
 
     describe("Removing a module", function () {
