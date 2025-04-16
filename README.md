@@ -15,7 +15,7 @@ This contract implements all the ERC 4337 requirements.
 
 It expects a WebAuthn signature for authentication.
 
-It also implements logic to install and unintall modules.
+It also implements logic to install and uninstall modules.
 
 Once installed, the core contract will delegate call to modules, based of the selector, if no matching function is found.
 
@@ -24,6 +24,30 @@ Once installed, the core contract will delegate call to modules, based of the se
 - `modules`: Pluggable functionality extensions (DCA, Ownership)
 - `third-party`: Contracts imported from vendor for small adaptations
 - `test/utils/signing.ts`: Logic to emulate the creation of a passkey signature
+
+## Contracts Architecture
+
+```mermaid
+graph TD
+    Common --> ModularSmartWallet
+    ModularSmartWallet --> WebAuthn
+    Common --> Ownership
+    Ownership --> |implements| IModule
+    DCA --> |implements| IModule
+    ModularSmartWallet --> |delegatecall| Ownership
+    ModularSmartWallet --> |delegatecall| DCA
+    WebAuthn --> P256
+
+    classDef main fill:#f9f,stroke:#800080,color:#800080;
+    classDef module fill:#bbf,stroke:#0000aa,color:#0000aa;
+    classDef library fill:#bfb,stroke:#006600,color:#006600;
+    classDef interface fill:white,stroke:#aa6600,color:#aa6600;
+
+    class ModularSmartWallet main;
+    class Ownership,DCA module;
+    class WebAuthn,P256,Common library;
+    class IModule interface;
+```
 
 ## Installation
 
