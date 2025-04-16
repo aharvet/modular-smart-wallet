@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { network } from "hardhat";
 import { ethers } from "hardhat";
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
-import { createPasskey, signUserOp } from "./utils/signing";
+import { createPasskey, getBlockTimestamp, signUserOp } from "./utils/signing";
 import { createUserOp, getUserOpHash } from "./utils/userOp";
 import { entryPointAddress, usdcAddress } from "./utils/constants";
 import { Contract, Signer } from "ethers";
@@ -64,7 +64,7 @@ describe("Wallet", function () {
       .connect(entryPointSigner)
       .validateUserOp.staticCall(userOp, userOpHash, 0);
 
-    expect(validationData).to.equal(0, "validationData should be 0");
+    expect(validationData).to.equal(0);
   });
 
   it("should make a tx without calldata", async function () {
@@ -72,7 +72,7 @@ describe("Wallet", function () {
       await account2.getAddress()
     );
 
-    const transferAmount = ethers.parseEther("1.0");
+    const transferAmount = ethers.parseEther("1");
     const callData = smartWallet.interface.encodeFunctionData("execute", [
       await account2.getAddress(),
       transferAmount,
@@ -127,6 +127,41 @@ describe("Wallet", function () {
     expect(usdcAllowance).to.equal(allowance);
   });
 
+  it("should make a tx with futur timestamp", async function () {
+    const initialBalance = await ethers.provider.getBalance(
+      await account2.getAddress()
+    );
+
+    const transferAmount = ethers.parseEther("1");
+    const callData = smartWallet.interface.encodeFunctionData("execute", [
+      await account2.getAddress(),
+      transferAmount,
+      "0x",
+    ]);
+
+    const userOp = await createUserOp(smartWallet, callData);
+    const userOpHash = await getUserOpHash(entryPoint, userOp);
+    const futureTimestamp = (await getBlockTimestamp()) + 3600;
+    const { signatureEncoded } = await signUserOp(
+      userOpHash,
+      keyPair.key,
+      1,
+      futureTimestamp
+    );
+    userOp.signature = signatureEncoded;
+
+    const tx = await entryPoint.handleOps(
+      [userOp],
+      await account1.getAddress()
+    );
+    await tx.wait();
+
+    const finalBalance = await ethers.provider.getBalance(
+      await account2.getAddress()
+    );
+    expect(finalBalance - initialBalance).to.equal(transferAmount);
+  });
+
   // test that the wallet can receive ETH
   it("should receive ETH", async function () {
     const value = ethers.parseEther("1");
@@ -157,6 +192,47 @@ describe("Wallet", function () {
     userOp.signature = signatureEncoded;
 
     await setBalance(entryPointAddress, ethers.parseEther("100"));
+
+    await expect(entryPoint.handleOps([userOp], await account1.getAddress())).to
+      .be.reverted;
+  });
+
+  it("should revert if invalid signature version", async function () {
+    const transferAmount = ethers.parseEther("1");
+    const callData = smartWallet.interface.encodeFunctionData("execute", [
+      await account2.getAddress(),
+      transferAmount,
+      "0x",
+    ]);
+
+    const userOp = await createUserOp(smartWallet, callData);
+    const userOpHash = await getUserOpHash(entryPoint, userOp);
+    const { signatureEncoded } = await signUserOp(userOpHash, keyPair.key, 6);
+    userOp.signature = signatureEncoded;
+
+    await expect(entryPoint.handleOps([userOp], await account1.getAddress())).to
+      .be.reverted;
+  });
+
+  it("should revert if validUntil is in the past", async function () {
+    const transferAmount = ethers.parseEther("1");
+    const callData = smartWallet.interface.encodeFunctionData("execute", [
+      await account2.getAddress(),
+      transferAmount,
+      "0x",
+    ]);
+
+    const userOp = await createUserOp(smartWallet, callData);
+    const userOpHash = await getUserOpHash(entryPoint, userOp);
+
+    const pastTimestamp = (await getBlockTimestamp()) - 3600;
+    const { signatureEncoded } = await signUserOp(
+      userOpHash,
+      keyPair.key,
+      1,
+      pastTimestamp
+    );
+    userOp.signature = signatureEncoded;
 
     await expect(entryPoint.handleOps([userOp], await account1.getAddress())).to
       .be.reverted;

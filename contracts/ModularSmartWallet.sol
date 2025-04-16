@@ -83,6 +83,16 @@ contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
         bytes32 /*userOpHash is included in the challenge*/
     ) internal view override onlyEntryPoint returns (uint256 validationData) {
         PasskeySig memory passkeySig = abi.decode(userOp.signature, (PasskeySig));
+
+        uint8 version = uint8(passkeySig.challenge[0]);
+        if (version != 1) return SIG_VALIDATION_FAILED;
+        // Extract validUntil (next 6 bytes)
+        // bytes7(passkeySig.challenge) is the first 8 bytes of the challenge
+        // << 8 shifts it left by 1 byte to remove the version
+        // bytes6() extracts the first 6 bytes
+        uint48 validUntil = uint48(bytes6(bytes7(passkeySig.challenge) << 8));
+        if (validUntil != 0 && validUntil <= block.timestamp) return SIG_VALIDATION_FAILED;
+
         PublicKey memory pk = _getMainStorage().publicKey;
 
         bool success = WebAuthn.verifySignature(

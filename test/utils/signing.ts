@@ -58,10 +58,12 @@ export function getClientDataJSON(challenge: Buffer) {
   });
 }
 
-export async function signUserOp(userOpHash: string, keyPair: CryptoKeyPair) {
-  // Authentication parameters
-  const version = 1;
-  const validUntil = 0; // No expiration
+export async function signUserOp(
+  userOpHash: string,
+  keyPair: CryptoKeyPair,
+  version: number = 1,
+  validUntil: number = 0 // No expiration
+) {
   // Mock value from simpleWebAuthn library
   const authenticatorData = Buffer.from(
     "49960de5880e8c687434170f6476605b8fe4aeb9a28632c7995cf3ba831d97630500000000",
@@ -116,4 +118,9 @@ export async function signUserOp(userOpHash: string, keyPair: CryptoKeyPair) {
     signatureEncoded,
     msgHash: `0x${msgHash.toString("hex")}`,
   };
+}
+
+export async function getBlockTimestamp() {
+  const block = await ethers.provider.getBlock("latest");
+  return block!.timestamp;
 }
