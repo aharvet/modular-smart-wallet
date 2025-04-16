@@ -6,17 +6,25 @@ import {ICommon} from "./interfaces/ICommon.sol";
 import {IModule} from "./interfaces/IModule.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import {Common} from "./Common.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {BaseAccount} from "@account-abstraction/contracts/core/BaseAccount.sol";
 import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import {SIG_VALIDATION_FAILED, SIG_VALIDATION_SUCCESS} from "@account-abstraction/contracts/core/Helpers.sol";
 import {WebAuthn} from "./third-party/WebAuthn.sol";
 
-contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
+contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common, ERC165 {
     constructor(address entryPoint_, PublicKey memory publicKey_) {
         MainStorage storage s = _getMainStorage();
         s.entryPoint = entryPoint_;
         s.publicKey = publicKey_;
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+        return interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId
+            || super.supportsInterface(interfaceId);
     }
 
     function entryPoint() public view override(BaseAccount, Common) returns (IEntryPoint) {
@@ -78,6 +86,33 @@ contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
         emit ModuleUninstalled(module);
     }
 
+    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure returns (bytes4) {
+        return IERC1155Receiver.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
+        external
+        pure
+        returns (bytes4)
+    {
+        return IERC1155Receiver.onERC1155BatchReceived.selector;
+    }
+
+    fallback() external payable {
+        address module = _getMainStorage().methods[msg.sig];
+        // Revert if no method found
+        // Doesn't return error to emulate normal behavior
+        require(module != address(0));
+        _delegate(module);
+    }
+
+    // Allow the wallet to receive ETH
+    receive() external payable {}
+
     function _validateSignature(
         PackedUserOperation calldata userOp,
         bytes32 /*userOpHash is included in the challenge*/
@@ -125,15 +160,4 @@ contract ModularSmartWallet is IModularSmartWallet, BaseAccount, Common {
             default { return(0, returndatasize()) }
         }
     }
-
-    fallback() external payable {
-        address module = _getMainStorage().methods[msg.sig];
-        // Revert if no method found
-        // Doesn't return error to emulate normal behavior
-        require(module != address(0));
-        _delegate(module);
-    }
-
-    // Allow the wallet to receive ETH
-    receive() external payable {}
 }
