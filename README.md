@@ -58,7 +58,7 @@ npm i
 Set a mainnet RPC URL for forking during test (to use ERC 4337 infrastructure)
 
 ```bash
-npx hardhat vars set <MAINNET_RPC_URL>
+npx hardhat vars set MAINNET_RPC_URL
 ```
 
 To run the tests
