@@ -51,6 +51,8 @@ graph TD
 
 ## Installation
 
+Install packages
+
 ```bash
 npm i
 ```
